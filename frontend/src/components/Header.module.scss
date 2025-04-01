@@ -1,0 +1,39 @@
+/* src/components/Header.module.scss */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #1890ff;
+    color: #fff;
+    padding: 15px 30px;
+  }
+  
+  .brand a {
+    font-size: 24px;
+    font-weight: bold;
+    color: #fff;
+    text-decoration: none;
+  }
+  
+  .nav ul {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .nav li {
+    margin-left: 20px;
+  }
+  
+  .nav li a {
+    color: #fff;
+    text-decoration: none;
+    font-size: 16px;
+    transition: color 0.3s ease;
+  }
+  
+  .nav li a:hover {
+    color: #d0eaff;
+  }
+  
