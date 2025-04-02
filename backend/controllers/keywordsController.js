@@ -1,9 +1,8 @@
 // controllers/keywordsController.js
 const pool = require('../config/db');
 
-// Получение всех ключевых слов для пользователя
 exports.getKeywords = async (req, res) => {
-  const userId = req.user.userId; // middleware auth должен добавить req.user
+  const userId = req.user.userId;
   try {
     const result = await pool.query(
       'SELECT id, pattern, category_name FROM keywords WHERE user_id = $1 ORDER BY id',
@@ -16,7 +15,6 @@ exports.getKeywords = async (req, res) => {
   }
 };
 
-// Добавление нового правила ключевых слов
 exports.addKeyword = async (req, res) => {
   const userId = req.user.userId;
   const { pattern, category_name } = req.body;
@@ -34,7 +32,6 @@ exports.addKeyword = async (req, res) => {
   }
 };
 
-// Обновление правила ключевых слов
 exports.updateKeyword = async (req, res) => {
   const userId = req.user.userId;
   const keywordId = req.params.id;
@@ -57,13 +54,12 @@ exports.updateKeyword = async (req, res) => {
   }
 };
 
-// Удаление правила ключевых слов
 exports.deleteKeyword = async (req, res) => {
   const userId = req.user.userId;
   const keywordId = req.params.id;
   try {
     const result = await pool.query(
-      `DELETE FROM keywords WHERE id = $1 AND user_id = $2 RETURNING id`,
+      'DELETE FROM keywords WHERE id = $1 AND user_id = $2 RETURNING id',
       [keywordId, userId]
     );
     if (result.rows.length === 0) {

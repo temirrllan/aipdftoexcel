@@ -4,7 +4,7 @@ const router = express.Router();
 const keywordsController = require('../controllers/keywordsController');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// Все маршруты защищены middleware для проверки токена
+// Все маршруты ниже будут защищены
 router.use(authMiddleware);
 
 router.get('/', keywordsController.getKeywords);

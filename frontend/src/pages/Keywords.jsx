@@ -1,37 +1,73 @@
 // src/pages/Keywords.jsx
-import React, { useState } from 'react'
+import React, { useState } from 'react';
 import {
   useGetKeywordsQuery,
   useAddKeywordMutation,
+  useUpdateKeywordMutation,
   useDeleteKeywordMutation,
-} from '../features/keywords/keywordsApi'
-import styles from '../styles/Keywords.module.scss'
+} from '../features/keywords/keywordsApi';
+import styles from '../styles/Keywords.module.scss';
 
 const Keywords = () => {
-  const { data: keywords, isLoading, error, refetch } = useGetKeywordsQuery()
-  const [addKeyword] = useAddKeywordMutation()
-  const [deleteKeyword] = useDeleteKeywordMutation()
-  const [newKeyword, setNewKeyword] = useState({ pattern: '', category_name: '' })
+  const {
+    data: keywords,
+    isLoading,
+    error,
+    refetch,
+  } = useGetKeywordsQuery();
+  const [addKeyword] = useAddKeywordMutation();
+  const [updateKeyword] = useUpdateKeywordMutation();
+  const [deleteKeyword] = useDeleteKeywordMutation();
+
+  // Состояние для новой записи
+  const [newKeyword, setNewKeyword] = useState({
+    pattern: '',
+    category_name: '',
+  });
+  // Состояние для редактирования
+  const [editingKeywordId, setEditingKeywordId] = useState(null);
+  const [editData, setEditData] = useState({ pattern: '', category_name: '' });
 
   const handleAdd = async () => {
-    if (!newKeyword.pattern.trim() || !newKeyword.category_name.trim()) return
+    if (!newKeyword.pattern.trim() || !newKeyword.category_name.trim()) return;
     try {
-      await addKeyword(newKeyword).unwrap()
-      setNewKeyword({ pattern: '', category_name: '' })
-      refetch()
+      await addKeyword(newKeyword).unwrap();
+      setNewKeyword({ pattern: '', category_name: '' });
+      refetch();
     } catch (err) {
-      console.error('Ошибка добавления:', err)
+      console.error('Ошибка добавления:', err);
     }
-  }
+  };
 
   const handleDelete = async (id) => {
     try {
-      await deleteKeyword(id).unwrap()
-      refetch()
+      await deleteKeyword(id).unwrap();
+      refetch();
     } catch (err) {
-      console.error('Ошибка удаления:', err)
+      console.error('Ошибка удаления:', err);
     }
-  }
+  };
+
+  const handleEdit = (kw) => {
+    setEditingKeywordId(kw.id);
+    setEditData({ pattern: kw.pattern, category_name: kw.category_name });
+  };
+
+  const handleUpdate = async () => {
+    try {
+      await updateKeyword({ id: editingKeywordId, ...editData }).unwrap();
+      setEditingKeywordId(null);
+      setEditData({ pattern: '', category_name: '' });
+      refetch();
+    } catch (err) {
+      console.error('Ошибка обновления:', err);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingKeywordId(null);
+    setEditData({ pattern: '', category_name: '' });
+  };
 
   return (
     <div className={styles.keywordsContainer}>
@@ -52,10 +88,44 @@ const Keywords = () => {
             {keywords.map((kw) => (
               <tr key={kw.id}>
                 <td>{kw.id}</td>
-                <td>{kw.pattern}</td>
-                <td>{kw.category_name}</td>
                 <td>
-                  <button onClick={() => handleDelete(kw.id)}>Удалить</button>
+                  {editingKeywordId === kw.id ? (
+                    <input
+                      type="text"
+                      value={editData.pattern}
+                      onChange={(e) =>
+                        setEditData({ ...editData, pattern: e.target.value })
+                      }
+                    />
+                  ) : (
+                    kw.pattern
+                  )}
+                </td>
+                <td>
+                  {editingKeywordId === kw.id ? (
+                    <input
+                      type="text"
+                      value={editData.category_name}
+                      onChange={(e) =>
+                        setEditData({ ...editData, category_name: e.target.value })
+                      }
+                    />
+                  ) : (
+                    kw.category_name
+                  )}
+                </td>
+                <td>
+                  {editingKeywordId === kw.id ? (
+                    <>
+                      <button onClick={handleUpdate}>Сохранить</button>
+                      <button onClick={handleCancelEdit}>Отмена</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => handleEdit(kw)}>Редактировать</button>
+                      <button onClick={() => handleDelete(kw.id)}>Удалить</button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -83,7 +153,7 @@ const Keywords = () => {
         <button onClick={handleAdd}>Добавить правило</button>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Keywords
+export default Keywords;

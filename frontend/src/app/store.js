@@ -1,23 +1,29 @@
+
+
+
+
 // src/app/store.js
 import { configureStore } from '@reduxjs/toolkit'
 import { setupListeners } from '@reduxjs/toolkit/query'
 import { keywordsApi } from '../features/keywords/keywordsApi'
 // Если у вас есть другие API, например authApi, импортируйте и его тоже:
-// import { authApi } from '../features/auth/authApi'
+import { authApi } from '../features/auth/authApi'
+
 
 export const store = configureStore({
   reducer: {
     // Добавляем reducer RTK Query
     [keywordsApi.reducerPath]: keywordsApi.reducer,
     // Если есть другой API:
-    // [authApi.reducerPath]: authApi.reducer,
+    [authApi.reducerPath]: authApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(
       keywordsApi.middleware,
       // Если есть другой API:
-      // authApi.middleware
+      authApi.middleware
     ),
+    
 })
 
 // Это необязательно, но полезно для автоматического рефетчинга при фокусе и т.п.
