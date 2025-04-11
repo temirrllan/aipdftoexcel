@@ -12,7 +12,8 @@ const Upload = () => {
   const [excelFile, setExcelFile] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-
+ // Состояние для статистики контрагентов
+ const [contragentStats, setContragentStats] = useState([])
   // Состояния для модального окна добавления ключевых слов
   const [showModal, setShowModal] = useState(false)
 
@@ -24,6 +25,20 @@ const Upload = () => {
   // RTK Query: мутация для добавления нового ключевого слова в базу
   const [addKeyword] = useAddKeywordMutation()
 
+
+   // Новое состояние для статистики
+   const [statsData, setStatsData] = useState([])
+  // Функция при нажатии кнопки «Показать по контрагентам»
+  const handleShowContragentStats = () => {
+    const stats = aggregateContragent(tableData)
+    setContragentStats(stats)
+  }
+    // Функция, вызываемая при нажатии кнопки "Показать статистику"
+  const handleShowStats = () => {
+    // Создаём агрегатную таблицу
+    const aggregated = aggregateKeywords(tableData)
+    setStatsData(aggregated)
+  }
   // При монтировании загружаем данные из Local Storage для текущего пользователя
   useEffect(() => {
     const userId = localStorage.getItem('userId')
@@ -181,13 +196,20 @@ const Upload = () => {
         </button>
       </div>
       {error && <p className={styles.error}>{error}</p>}
-
+      {tableData.length > 0 && (
+        <div className={styles.result}>
+          {/* Новая кнопка для показа статистики по контрагентам */}
+          <button onClick={handleShowContragentStats}>
+            Статистика по контрагентам
+          </button>
+        </div>
+      )}
       {tableData.length > 0 && (
         <div className={styles.result}>
           <button onClick={handleDownload}>Скачать Excel</button>
           <button onClick={openModal}>Добавить ключевое слово</button>
           <button onClick={handleApplyDefault}>По вашим критериям</button>
-
+          <button onClick={handleShowStats}>Показать статистику</button>
           <table className={styles.table}>
             <thead>
               <tr>
@@ -208,7 +230,56 @@ const Upload = () => {
           </table>
         </div>
       )}
+{/* Если есть данные для статистики, показываем вторую таблицу */}
+{statsData.length > 0 && (
+        <div className={styles.statsContainer}>
+          <h2>Статистика по ключевым словам</h2>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Назначение</th>
+                <th>Операции</th>
+                <th>Сумма</th>
+              </tr>
+            </thead>
+            <tbody>
+              {statsData.map((row, index) => (
+                <tr key={index}>
+                  <td>{row.keyword}</td>
+                  <td>{row.operations}</td>
+                  <td>{row.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
+{contragentStats.length > 0 && (
+        <div className={styles.statsContainer}>
+          <h2>Операции по поступлению</h2>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Контрагент</th>
+                <th>Операции</th>
+                <th>Сумма операций</th>
+                <th>Доля</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contragentStats.map((row, index) => (
+                <tr key={index}>
+                  <td>{row.contragent}</td>
+                  <td>{row.count}</td>
+                  <td>{formatMoney(row.total)}</td>
+                  <td>{row.share.toFixed(2)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {showModal && (
         <AddKeywordModal onClose={closeModal} onSaved={onKeywordSaved} />
       )}
@@ -259,6 +330,129 @@ function applyKeywordsToTable(originalTable, patterns) {
 
   return table
 }
+// Функция, которая агрегирует данные из столбцов "Ключевое слово" и "Сумма"
+function aggregateKeywords(tableData) {
+  if (tableData.length < 2) return [];
 
+  // Ищем индексы столбцов "Ключевое слово" и "Сумма"
+  const headerRow = tableData[0];
+  const keywordIndex = headerRow.findIndex((cell) =>
+    cell.toLowerCase().includes('ключевое слово')
+  );
+  const sumIndex = headerRow.findIndex((cell) =>
+    cell.toLowerCase().includes('сумма')
+  );
 
+  if (keywordIndex === -1 || sumIndex === -1) {
+    return [];
+  }
+
+  const aggregator = {};
+
+  // Перебираем строки данных (начиная со второй строки)
+  for (let i = 1; i < tableData.length; i++) {
+    const row = tableData[i];
+    const keywordCell = row[keywordIndex] || '';
+    const sumCell = row[sumIndex] || '0';
+
+    const numericValue = parseFloat(
+      sumCell.toString().replace(/\s+/g, '').replace(',', '.')
+    );
+    const amount = isNaN(numericValue) ? 0 : numericValue;
+
+    // Допускаем, что может быть несколько ключевых слов, разделённых запятой
+    const keywordsArr = keywordCell
+      .split(',')
+      .map((k) => k.trim())
+      .filter((k) => k !== '');
+
+    keywordsArr.forEach((kw) => {
+      if (!aggregator[kw]) {
+        aggregator[kw] = { count: 0, total: 0 };
+      }
+      aggregator[kw].count += 1;
+      aggregator[kw].total += amount;
+    });
+  }
+
+  const result = Object.entries(aggregator).map(([keyword, data]) => ({
+    keyword,
+    operations: data.count,
+    total: data.total,
+  }));
+
+  // Сортируем по количеству операций от большего к меньшему
+  result.sort((a, b) => b.operations - a.operations);
+  
+  return result;
+}
+
+function aggregateContragent(tableData) {
+  if (tableData.length < 2) return []
+
+  // Ищем индексы нужных столбцов
+  const headerRow = tableData[0]
+  const contragentIndex = headerRow.findIndex((cell) =>
+    cell.toLowerCase().includes('наименование получателя')
+  )
+  const sumIndex = headerRow.findIndex((cell) =>
+    cell.toLowerCase().includes('сумма')
+  )
+
+  if (contragentIndex === -1 || sumIndex === -1) {
+    // Не нашли нужные столбцы, возвращаем пусто
+    return []
+  }
+
+  // Агрегатор вида { 'ТОО Иванов': { count: 0, total: 0 }, ... }
+  const aggregator = {}
+
+  // Перебираем строки данных
+  for (let i = 1; i < tableData.length; i++) {
+    const row = tableData[i]
+    const contragentName = row[contragentIndex] || ''
+    const sumCell = row[sumIndex] || '0'
+
+    // Парсим сумму (убираем пробелы, заменяем запятую на точку)
+    const numericValue = parseFloat(
+      sumCell.toString().replace(/\s+/g, '').replace(',', '.')
+    )
+    const amount = isNaN(numericValue) ? 0 : numericValue
+
+    if (!aggregator[contragentName]) {
+      aggregator[contragentName] = { count: 0, total: 0 }
+    }
+    aggregator[contragentName].count += 1
+    aggregator[contragentName].total += amount
+  }
+
+  // Превращаем aggregator в массив
+  let result = Object.entries(aggregator).map(([contragent, data]) => ({
+    contragent,
+    count: data.count,
+    total: data.total,
+  }))
+
+  // Находим общий итог, чтобы вычислить долю
+  const grandTotal = result.reduce((acc, obj) => acc + obj.total, 0)
+
+  // Вычисляем share = (obj.total / grandTotal) * 100
+  result.forEach((obj) => {
+    obj.share = grandTotal > 0 ? (obj.total / grandTotal) * 100 : 0
+  })
+
+  // Можно отсортировать, например, по total (убывание)
+  result.sort((a, b) => b.total - a.total)
+
+  return result
+}
+
+// Пример форматирования суммы (можно использовать Intl.NumberFormat)
+function formatMoney(value) {
+  return new Intl.NumberFormat('ru-RU', {
+    style: 'decimal',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value)
+}
 export default Upload

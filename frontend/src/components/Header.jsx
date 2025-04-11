@@ -24,7 +24,7 @@ const Header = () => {
             <Link to="/upload">Конвертация</Link>
           </li>
           <li>
-            <Link to="/logout">Выход</Link>
+            <Link to="/login">Выход</Link>
           </li>
         </ul>
       </nav>
