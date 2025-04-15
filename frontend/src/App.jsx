@@ -8,6 +8,7 @@ import Upload from './pages/Upload'
 import './styles/global.scss'
 import Profile from './pages/Profile'
 import Keywords from './pages/Keywords'
+import Logout from './components/Logout'
 
 const App = () => {
   return (
@@ -21,6 +22,7 @@ const App = () => {
         {/* Другие маршруты */}
         <Route path="/profile" element={<Profile />} />
         <Route path="/keywords" element={<Keywords />} />
+        <Route path="/logout" element={<Logout />} />
 
       </Routes>
     </Router>

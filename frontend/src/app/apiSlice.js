@@ -1,25 +1,33 @@
-// src/app/apiSlice.js
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 export const apiSlice = createApi({
-  reducerPath: 'api', // уникальный ключ в сторе
-  baseQuery: fetchBaseQuery({ baseUrl: 'http://localhost:3001' }),
+  reducerPath: 'keywordsApi',
+  baseQuery: fetchBaseQuery({
+    baseUrl: 'http://localhost:3001/keywords',
+    prepareHeaders: (headers) => {
+      const token = localStorage.getItem('token'); // или откуда вы берете токен
+      if (token) {
+        headers.set('authorization', `Bearer ${token}`);
+      }
+      return headers;
+    },
+  }),
   endpoints: (builder) => ({
-    registerUser: builder.mutation({
-      query: (credentials) => ({
-        url: '/auth/register',
+    getKeywords: builder.query({ query: () => '/' }),
+    addKeyword: builder.mutation({
+      query: (body) => ({
+        url: '/',
         method: 'POST',
-        body: credentials,
+        body,
       }),
     }),
-    loginUser: builder.mutation({
-      query: (credentials) => ({
-        url: '/auth/login',
-        method: 'POST',
-        body: credentials,
-      }),
-    }),
+    // ... updateKeyword, deleteKeyword
   }),
 });
 
-export const { useRegisterUserMutation, useLoginUserMutation } = apiSlice;
+export const {
+  useGetKeywordsQuery,
+  useLazyGetKeywordsQuery,
+  useAddKeywordMutation,
+  // ...
+} = apiSlice;

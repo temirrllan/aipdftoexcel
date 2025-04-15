@@ -1,7 +1,7 @@
 // src/components/Header.jsx
-import React from 'react'
-import { Link } from 'react-router-dom'
-import styles from './Header.module.scss'
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styles from './Header.module.scss';
 
 const Header = () => {
   return (
@@ -11,25 +11,15 @@ const Header = () => {
       </div>
       <nav className={styles.nav}>
         <ul>
-          <li>
-            <Link to="/dashboard">Главная</Link>
-          </li>
-          <li>
-            <Link to="/keywords">ключ</Link>
-          </li>
-          <li>
-            <Link to="/profile">Профиль</Link>
-          </li>
-          <li>
-            <Link to="/upload">Конвертация</Link>
-          </li>
-          <li>
-            <Link to="/login">Выход</Link>
-          </li>
+          <li><Link to="/dashboard">Главная</Link></li>
+          <li><Link to="/keywords">Ключевые слова</Link></li>
+          <li><Link to="/profile">Профиль</Link></li>
+          <li><Link to="/upload">Конвертация</Link></li>
+          <li><Link to="/logout">Выход</Link></li>
         </ul>
       </nav>
     </header>
-  )
-}
+  );
+};
 
-export default Header
+export default Header;

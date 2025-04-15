@@ -1,40 +1,28 @@
-// src/pages/Profile.jsx
-import React from 'react'
-import { useGetProfileQuery } from '../features/auth/authApi'
-import styles from '../styles/Profile.module.scss'
+import React, { useEffect, useState } from 'react';
 
 const Profile = () => {
-  // Используем RTK Query для получения профиля
-  const { data, error, isLoading } = useGetProfileQuery()
+  const [user, setUser] = useState(null);
 
-  if (isLoading) {
-    return <div className={styles.profileContainer}>Загрузка...</div>
-  }
+  // При монтировании пытаемся получить данные текущего пользователя из localStorage
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
 
-  if (error) {
-    return (
-      <div className={styles.profileContainer}>
-        Ошибка: {error.error || 'Не удалось получить профиль'}
-      </div>
-    )
+  if (!user) {
+    return <p>Пожалуйста, войдите в систему</p>;
   }
 
   return (
-    <div className={styles.profileContainer}>
+    <div style={{ padding: '20px' }}>
       <h1>Профиль пользователя</h1>
-      <div className={styles.info}>
-        <p>
-          <strong>ID:</strong> {data.id}
-        </p>
-        <p>
-          <strong>Имя пользователя:</strong> {data.username}
-        </p>
-        <p>
-          <strong>Email:</strong> {data.email}
-        </p>
-      </div>
+      <p><strong>ID:</strong> {user.id}</p>
+      <p><strong>Имя пользователя:</strong> {user.username}</p>
+      <p><strong>Email:</strong> {user.email}</p>
     </div>
-  )
-}
+  );
+};
 
-export default Profile
+export default Profile;

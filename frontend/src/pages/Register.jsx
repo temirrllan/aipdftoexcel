@@ -1,39 +1,48 @@
-// src/pages/Register.jsx
-import React, { useState } from 'react'
-import { useRegisterMutation } from '../features/auth/authApi'
-import styles from '../styles/Register.module.scss'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Register = () => {
-  const [register, { isLoading, error }] = useRegisterMutation()
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
-  })
-  const navigate = useNavigate()
+  });
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
-  }
+    setFormData({...formData, [e.target.name]: e.target.value});
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
     try {
-      const result = await register(formData).unwrap()
-      console.log('Успешная регистрация:', result)
-      navigate('/login')
+      const res = await fetch('http://localhost:3001/auth/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(formData)
+      });
+      if (!res.ok) {
+        throw new Error('Ошибка регистрации');
+      }
+      const data = await res.json();
+      navigate('/login');
     } catch (err) {
-      console.error('Ошибка регистрации:', err)
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <div className={styles.registerContainer}>
+    <div className="registerContainer">
       <h1>Регистрация</h1>
-      <form onSubmit={handleSubmit} className={styles.registerForm}>
-        <label>
-          Имя пользователя:
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Имя пользователя:</label>
           <input
             type="text"
             name="username"
@@ -41,9 +50,9 @@ const Register = () => {
             onChange={handleChange}
             required
           />
-        </label>
-        <label>
-          Email:
+        </div>
+        <div>
+          <label>Email:</label>
           <input
             type="email"
             name="email"
@@ -51,9 +60,9 @@ const Register = () => {
             onChange={handleChange}
             required
           />
-        </label>
-        <label>
-          Пароль:
+        </div>
+        <div>
+          <label>Пароль:</label>
           <input
             type="password"
             name="password"
@@ -61,17 +70,15 @@ const Register = () => {
             onChange={handleChange}
             required
           />
-        </label>
+        </div>
         <button type="submit" disabled={isLoading}>
-          Зарегистрироваться
+          {isLoading ? 'Регистрация...' : 'Зарегистрироваться'}
         </button>
-        {error && <p className={styles.error}>Ошибка регистрации</p>}
+        {error && <p style={{ color: 'red' }}>{error}</p>}
       </form>
-      <p>
-        Уже есть аккаунт? <Link to="/login">Войти</Link>
-      </p>
+      <p>Уже есть аккаунт? <Link to="/login">Войти</Link></p>
     </div>
-  )
-}
+  );
+};
 
-export default Register
+export default Register;

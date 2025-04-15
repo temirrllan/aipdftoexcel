@@ -1,15 +1,16 @@
-// routes/upload.js
+// backend/routes/upload.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const authMiddleware = require('../middleware/authMiddleware'); // Подключаем middleware авторизации
 
-// Создаем экземпляр multer (без сохранения файла на диск — файлы остаются в памяти)
+// Создаем экземпляр multer (файлы остаются в памяти)
 const upload = multer();
 
 // Импортируем контроллер
 const { convertPdf } = require('../controllers/uploadController');
 
-// Определяем маршрут для POST-запроса на /upload
-router.post('/', upload.single('pdfFile'), convertPdf);
+// Применяем authMiddleware к маршруту, чтобы req.user был определён для авторизованных пользователей
+router.post('/', authMiddleware, upload.single('pdfFile'), convertPdf);
 
 module.exports = router;

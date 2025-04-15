@@ -1,40 +1,38 @@
-// src/pages/Login.jsx
-import React, { useState } from 'react'
-import { useLoginMutation } from '../features/auth/authApi'
-import styles from '../styles/Login.module.scss'
-import { Link, useNavigate } from 'react-router-dom'
+// Login.jsx (пример)
+import React, { useState } from "react";
+import { useLoginMutation } from "../features/auth/authApi";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
-  const [login, { isLoading, error }] = useLoginMutation()
-  const [formData, setFormData] = useState({
-    usernameOrEmail: '',
-    password: '',
-  })
-  const navigate = useNavigate()
+  const [login, { isLoading }] = useLoginMutation();
+  const [formData, setFormData] = useState({ usernameOrEmail: "", password: "" });
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
-  }
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      const result = await login(formData).unwrap()
-      console.log('Успешный вход:', result)
-      // Сохраняем токен в localStorage или в стейт
-      localStorage.setItem('token', result.token)
-      navigate('/dashboard') // перенаправление на основную страницу
+      const result = await login(formData).unwrap();
+      console.log("Ответ сервера при логине:", result);
+      // Предположим, сервер возвращает { message, token, user: { id, username, email } }
+      localStorage.setItem("token", result.token);
+      localStorage.setItem("userId", result.user.id);
+      // Возможно, хотите ещё сохранить user.username
+      // Перенаправить на главную или dashboard
+      navigate("/dashboard");
     } catch (err) {
-      console.error('Ошибка входа:', err)
+      console.error("Ошибка входа:", err);
     }
-  }
+  };
 
   return (
-    <div className={styles.loginContainer}>
+    <div>
       <h1>Вход</h1>
-      <form onSubmit={handleSubmit} className={styles.loginForm}>
-        <label>
-          Имя пользователя или Email:
+      <form onSubmit={handleSubmit}>
+        <label>Имя пользователя или Email:
           <input
             type="text"
             name="usernameOrEmail"
@@ -43,8 +41,7 @@ const Login = () => {
             required
           />
         </label>
-        <label>
-          Пароль:
+        <label>Пароль:
           <input
             type="password"
             name="password"
@@ -53,16 +50,10 @@ const Login = () => {
             required
           />
         </label>
-        <button type="submit" disabled={isLoading}>
-          Войти
-        </button>
-        {error && <p className={styles.error}>Ошибка входа</p>}
+        <button type="submit" disabled={isLoading}>Войти</button>
       </form>
-      <p>
-        Нет аккаунта? <Link to="/register">Регистрация</Link>
-      </p>
     </div>
-  )
-}
+  );
+};
 
-export default Login
+export default Login;

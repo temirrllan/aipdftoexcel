@@ -1,30 +1,22 @@
 // server.js
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
-const { spawn } = require('child_process');
-const ExcelJS = require('exceljs');
-
-// Создаем приложение express
+require('dotenv').config();
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
-const upload = multer();
 
-// Подключаем маршруты
+// Подключение маршрутов
 const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
 const keywordsRoutes = require('./routes/keywords');
+const assignmentKeywordsRoutes = require('./routes/assignmentKeywords');
 
-// Регистрируем маршруты
 app.use('/auth', authRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/keywords', keywordsRoutes);
+app.use('/assignment_keywords', assignmentKeywordsRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

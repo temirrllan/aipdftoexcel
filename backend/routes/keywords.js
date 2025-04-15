@@ -4,7 +4,8 @@ const router = express.Router();
 const keywordsController = require('../controllers/keywordsController');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// Все маршруты ниже будут защищены
+// Делаем маршрут защищённым, если хотите,
+// чтобы только авторизованные пользователи могли управлять своими ключевыми словами.
 router.use(authMiddleware);
 
 router.get('/', keywordsController.getKeywords);

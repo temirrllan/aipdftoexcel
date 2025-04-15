@@ -1,30 +1,34 @@
+// src/features/keywords/keywordsApi.js
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 export const keywordsApi = createApi({
   reducerPath: 'keywordsApi',
   baseQuery: fetchBaseQuery({
     baseUrl: 'http://localhost:3001/keywords',
-    prepareHeaders: (headers) => {
-      const token = localStorage.getItem('token');
+    prepareHeaders: (headers, { getState }) => {
+      // Пробуем получить токен из глобального состояния auth
+      const tokenFromState = getState().auth && getState().auth.token;
+      // Если нет в state, попытка взять токен из localStorage
+      const token = tokenFromState || localStorage.getItem('token');
       if (token) {
         headers.set('authorization', `Bearer ${token}`);
       }
       return headers;
     },
   }),
-  tagTypes: ['Keywords'], // Объявляем типы тегов
+  tagTypes: ['Keywords'],
   endpoints: (builder) => ({
     getKeywords: builder.query({
       query: () => '/',
-      providesTags: ['Keywords'], // При получении, помечаем данными этот тег
+      providesTags: ['Keywords'],
     }),
     addKeyword: builder.mutation({
-      query: (keyword) => ({
+      query: (body) => ({
         url: '/',
         method: 'POST',
-        body: keyword,
+        body,
       }),
-      invalidatesTags: ['Keywords'], // При добавлении инвалидируем тег, чтобы refetch прошёлся
+      invalidatesTags: ['Keywords'],
     }),
     updateKeyword: builder.mutation({
       query: ({ id, ...patch }) => ({

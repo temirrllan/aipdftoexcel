@@ -8,7 +8,7 @@ exports.convertPdf = (req, res) => {
   if (!req.file) {
     return res.status(400).send({ error: 'Файл не загружен' });
   }
-
+  const userId = req.user.userId;
   // Сохраняем загруженный PDF во временный файл
   const tempPath = path.join(__dirname, '..', 'temp.pdf');
   fs.writeFileSync(tempPath, req.file.buffer);
@@ -117,6 +117,8 @@ exports.convertPdf = (req, res) => {
     }
 
     // ================== Шаг 3: "Кредит - Дебет" => "сумма" (вместо Кредита) ==================
+    // ОТКЛЮЧЕНО: Пока функция не нужна. Комментарий ниже оставлен для возможного будущего использования.
+    /*
     {
       const headerRow = cleanHeaderRow(filteredData[0]);
       filteredData[0] = headerRow;
@@ -126,6 +128,7 @@ exports.convertPdf = (req, res) => {
         if (creditIndex < debetIndex) {
           [creditIndex, debetIndex] = [debetIndex, creditIndex];
         }
+        // Переименовываем столбец "Кредит" -> "сумма"
         filteredData[0][creditIndex] = 'сумма';
         function parseNum(val) {
           if (!val) return 0;
@@ -140,11 +143,13 @@ exports.convertPdf = (req, res) => {
           const result = c - d;
           row[creditIndex] = result.toString();
         }
+        // Удаляем столбец "Дебет" из каждой строки, чтобы оставить только столбец "сумма"
         filteredData.forEach(row => {
           row.splice(debetIndex, 1);
         });
       }
     }
+    */
 
     // ================== Шаг 4: "Наименование получателя" + выносим БИН/ИИН ==================
     {

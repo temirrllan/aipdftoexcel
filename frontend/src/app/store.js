@@ -1,30 +1,21 @@
-
-
-
-
 // src/app/store.js
-import { configureStore } from '@reduxjs/toolkit'
-import { setupListeners } from '@reduxjs/toolkit/query'
-import { keywordsApi } from '../features/keywords/keywordsApi'
-// Если у вас есть другие API, например authApi, импортируйте и его тоже:
-import { authApi } from '../features/auth/authApi'
-
+import { configureStore } from '@reduxjs/toolkit';
+import authReducer from '../features/auth/authSlice'; // ваш редьюсер для аутентификации
+import { authApi } from '../features/auth/authApi';       // RTK Query-сервис для auth
+import { keywordsApi } from '../features/keywords/keywordsApi'; // для ключевых слов (контрагент)
+import { assignmentKeywordsApi } from '../features/assignmentKeywords/assignmentKeywordsApi'; // для правил по назначению платежа
 
 export const store = configureStore({
   reducer: {
-    // Добавляем reducer RTK Query
-    [keywordsApi.reducerPath]: keywordsApi.reducer,
-    // Если есть другой API:
+    auth: authReducer,
     [authApi.reducerPath]: authApi.reducer,
+    [keywordsApi.reducerPath]: keywordsApi.reducer,
+    [assignmentKeywordsApi.reducerPath]: assignmentKeywordsApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(
+      authApi.middleware,
       keywordsApi.middleware,
-      // Если есть другой API:
-      authApi.middleware
+      assignmentKeywordsApi.middleware
     ),
-    
-})
-
-// Это необязательно, но полезно для автоматического рефетчинга при фокусе и т.п.
-setupListeners(store.dispatch)
+});
