@@ -1,12 +1,14 @@
-// backend/routes/assignmentKeywords.js
+// routes/assignmentKeywords.js
 const express = require('express');
 const router = express.Router();
-const assignmentKeywordsController = require('../controllers/assignmentKeywordsController');
-const authMiddleware = require('../middleware/authMiddleware');
+const controller = require('../controllers/assignmentKeywordsController');
+const auth = require('../middleware/authMiddleware');
 
-router.use(authMiddleware);
+router.use(auth);
 
-router.get('/', assignmentKeywordsController.getAssignmentKeywords);
-router.post('/', assignmentKeywordsController.addAssignmentKeyword);
+router.get('/',    controller.getAssignmentKeywords);
+router.post('/',   controller.addAssignmentKeyword);
+router.put('/:id', controller.updateAssignmentKeyword);
+router.delete('/:id', controller.deleteAssignmentKeyword);
 
 module.exports = router;

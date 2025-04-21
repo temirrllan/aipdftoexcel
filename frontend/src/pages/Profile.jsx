@@ -1,19 +1,37 @@
 import React, { useEffect, useState } from 'react';
 
 const Profile = () => {
-  const [user, setUser] = useState(null);
+  const [user, setUser]   = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // При монтировании пытаемся получить данные текущего пользователя из localStorage
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Пожалуйста, войдите в систему');
+      setLoading(false);
+      return;
     }
+
+    fetch('http://localhost:3001/auth/profile', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Не удалось получить профиль');
+        return res.json();
+      })
+      .then(data => {
+        setUser(data);
+      })
+      .catch(err => {
+        console.error(err);
+        setError(err.message);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  if (!user) {
-    return <p>Пожалуйста, войдите в систему</p>;
-  }
+  if (loading) return <p>Загрузка...</p>;
+  if (error)   return <p style={{ color: 'red' }}>{error}</p>;
 
   return (
     <div style={{ padding: '20px' }}>

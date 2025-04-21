@@ -3,426 +3,403 @@ import React, { useState, useEffect } from "react";
 import styles from "../styles/Upload.module.scss";
 import AddKeywordModal from "../components/AddKeywordModal";
 import ExcelJS from "exceljs";
+
 import {
   useLazyGetKeywordsQuery,
   useAddKeywordMutation,
 } from "../features/keywords/keywordsApi";
-import { useGetAssignmentKeywordsQuery } from "../features/assignmentKeywords/assignmentKeywordsApi";
+import {
+  useGetAssignmentKeywordsQuery,
+  useAddAssignmentKeywordMutation,
+} from "../features/assignmentKeywords/assignmentKeywordsApi";
 
 const Upload = () => {
-  // Основные состояния
+  const [excelFile, setExcelFile] = useState(null); 
+  // ————————————————————————————————————————————
+  // УТИЛИТЫ ДЛЯ СВОДНЫХ ТАБЛИЦ
+  // ————————————————————————————————————————————
+  const handleExportWithSummaries = async () => {
+    const wb = new ExcelJS.Workbook();
+  
+    // 1) raw data sheet
+    const wsRaw = wb.addWorksheet("Исходные данные");
+    wsRaw.addRow(tableData[0]);
+    for (let i = 1; i < tableData.length; i++) {
+      wsRaw.addRow(tableData[i]);
+    }
+  
+    // helper
+    function addSummarySheet(name, arr, columns) {
+      const ws = wb.addWorksheet(name);
+      // add headers
+      ws.addRow(columns.map(c => c.header));
+      // add rows
+      arr.forEach(item => {
+        ws.addRow(columns.map(c => item[c.key]));
+      });
+    }
+  
+    // 2) Contractor Credit
+    addSummarySheet('Contractor Credit', summaryPositive, [
+  { key: 'group',       header: 'Контрагент' },  // ← здесь key, а не counterparty
+  { key: 'count',     header: 'Операции'   },
+  { key: 'sum',       header: 'Сумма'      },
+  { key: 'share',     header: 'Доля'       },
+  { key: 'keyword',   header: 'Статья'     },
+]);
+
+  
+    // 3) Contractor Debit
+    addSummarySheet("По контрагенту – (дебет)", summaryNegative, [
+      { key: "group", header: "Контрагент" },
+      { key: "count",        header: "Операции"   },
+      { key: "sum",          header: "Сумма"      },
+      { key: "share",        header: "Доля"       },
+      { key: "keyword",      header: "Статья"     },
+    ]);
+  
+    // 4) Assignment Credit
+    addSummarySheet("По назначению + (кредит)", summaryAssignmentPositive, [
+      { key: "assignment", header: "Назначение" },
+      { key: "count",      header: "Операции"   },
+      { key: "sum",        header: "Сумма"      },
+      { key: "share",      header: "Доля"       },
+      { key: "keyword",    header: "Статья"     },
+    ]);
+  
+    // 5) Assignment Debit
+    addSummarySheet("По назначению – (дебет)", summaryAssignmentNegative, [
+      { key: "assignment", header: "Назначение" },
+      { key: "count",      header: "Операции"   },
+      { key: "sum",        header: "Сумма"      },
+      { key: "share",      header: "Доля"       },
+      { key: "keyword",    header: "Статья"     },
+    ]);
+  
+    // trigger download
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats‑officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "report.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  // Общий расчёт сводки (контрагент)
+  function calcSummary(
+    table,
+    amountIdx,
+    groupIdx,
+    keywordMap
+  ) {
+    const map = {};
+    for (let i = 1; i < table.length; i++) {
+      const row = table[i];
+      const group = (row[groupIdx] || "").trim();
+      const raw = (row[amountIdx] || "0").toString().replace(/\s/g, "").replace(",", ".");
+      const val = parseFloat(raw) || 0;
+      if (!group || val === 0) continue;
+      map[group] = map[group] || { count: 0, sum: 0 };
+      map[group].count++;
+      map[group].sum += val;
+    }
+    const total = Object.values(map).reduce((s, x) => s + x.sum, 0) || 1;
+    return Object.entries(map).map(([group, data]) => ({
+      group,
+      count: data.count,
+      sum: data.sum,
+      share: ((data.sum / total) * 100).toFixed(2) + "%",
+      keyword: keywordMap[group] || "",
+    }));
+  }
+
+  // Расчёт сводки (назначение платежа)
+  function calcAssignmentSummary(
+    table,
+    amountIdx,
+    groupIdx,
+    assignmentMap
+  ) {
+    const map = {};
+    for (let i = 1; i < table.length; i++) {
+      const row = table[i];
+      const asn = (row[groupIdx] || "").trim();
+      const raw = (row[amountIdx] || "0").toString().replace(/\s/g, "").replace(",", ".");
+      const val = parseFloat(raw) || 0;
+      if (!asn || val === 0) continue;
+      map[asn] = map[asn] || { count: 0, sum: 0 };
+      map[asn].count++;
+      map[asn].sum += val;
+    }
+    const total = Object.values(map).reduce((s, x) => s + x.sum, 0) || 1;
+    return Object.entries(map).map(([asn, data]) => ({
+      assignment: asn,
+      count: data.count,
+      sum: data.sum,
+      share: ((data.sum / total) * 100).toFixed(2) + "%",
+      keyword: assignmentMap[asn.toLowerCase()] || "",
+    }));
+  }
+
+  // ————————————————————————————————————————————
+  // ОСНОВНЫЕ ХУКИ И СОСТОЯНИЯ
+  // ————————————————————————————————————————————
+
   const [file, setFile] = useState(null);
   const [tableData, setTableData] = useState([]);
-  const [excelFile, setExcelFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Модальное окно
+  // contractor‑modal
   const [showModal, setShowModal] = useState(false);
+  const [patterns, setPatterns] = useState([]);
 
-  // Сводные таблицы по контрагенту
+  // Сводная по контрагенту
   const [showSummary, setShowSummary] = useState(false);
   const [summaryPositive, setSummaryPositive] = useState([]);
   const [summaryNegative, setSummaryNegative] = useState([]);
 
-  // Сводные таблицы по назначению платежа
+  // Сводная по назначению
   const [showAssignmentSummary, setShowAssignmentSummary] = useState(false);
   const [summaryAssignmentPositive, setSummaryAssignmentPositive] = useState([]);
   const [summaryAssignmentNegative, setSummaryAssignmentNegative] = useState([]);
 
-  // Локальное хранение правил (например, { contragent, category })
-  const [patterns, setPatterns] = useState([]);
-
-  // RTK Query: lazy-запрос для получения правил из keywords (контрагент-based)
+  // RTK Query для contractor
   const [fetchKeywords] = useLazyGetKeywordsQuery();
-  // RTK Query: мутация для добавления нового правила в keywords
   const [addKeyword] = useAddKeywordMutation();
 
-  // RTK Query: получение правил из assignment_keywords (назначение платежа)
-  const { data: assignmentKeywords } = useGetAssignmentKeywordsQuery(undefined, {
-    refetchOnFocus: true,
-  });
+  // RTK Query для assignment
+  const {
+    data: assignmentKeywords = [],
+    refetch: refetchAssignmentKeywords,
+  } = useGetAssignmentKeywordsQuery(undefined, { refetchOnFocus: true });
+  const [addAssignmentKeyword] = useAddAssignmentKeywordMutation();
 
-  // Загрузка из localStorage при монтировании (используем ключи с суффиксом userId)
+  // ————————————————————————————————————————————
+  // ЗАГРУЗКА И СОХРАНЕНИЕ В LOCALSTORAGE
+  // ————————————————————————————————————————————
+
   useEffect(() => {
-    const userId = localStorage.getItem("userId");
-    if (userId) {
-      const savedTable = localStorage.getItem(`tableData_${userId}`);
-      const savedExcel = localStorage.getItem(`excelFile_${userId}`);
-      const savedPatterns = localStorage.getItem(`patterns_${userId}`);
-      if (savedTable) setTableData(JSON.parse(savedTable));
-      if (savedExcel) setExcelFile(savedExcel);
-      if (savedPatterns) setPatterns(JSON.parse(savedPatterns));
-    }
+    const uid = localStorage.getItem("userId");
+    if (!uid) return;
+    const td = localStorage.getItem(`tableData_${uid}`);
+    const pt = localStorage.getItem(`patterns_${uid}`);
+    if (td) setTableData(JSON.parse(td));
+    if (pt) setPatterns(JSON.parse(pt));
   }, []);
 
-  // 1) Выбор файла
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
+  // ————————————————————————————————————————————
+  // ЗАГРУЗКА PDF
+  // ————————————————————————————————————————————
 
-  // 2) Загрузка PDF
+  const handleFileChange = (e) => setFile(e.target.files[0]);
+
   const handleUpload = async () => {
     if (!file) return;
-    const formData = new FormData();
-    formData.append("pdfFile", file);
     setIsLoading(true);
     setError(null);
     try {
+      const form = new FormData();
+      form.append("pdfFile", file);
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:3001/upload", {
+      const res = await fetch("http://localhost:3001/upload", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
       });
-      if (!response.ok) throw new Error("Ошибка загрузки файла");
-      const data = await response.json();
-      const userId = localStorage.getItem("userId");
-      if (userId) {
-        localStorage.setItem(
-          `tableData_${userId}`,
-          JSON.stringify(data.tableData)
-        );
-        localStorage.setItem(`excelFile_${userId}`, data.excelFile);
-      }
-      setTableData(data.tableData);
-      setExcelFile(data.excelFile);
-    } catch (err) {
-      setError(err.message);
+      if (!res.ok) throw new Error("Ошибка загрузки");
+      const { tableData: tbl } = await res.json();
+      const uid = localStorage.getItem("userId");
+      if (uid) localStorage.setItem(`tableData_${uid}`, JSON.stringify(tbl));
+      setTableData(tbl);
+    } catch (e) {
+      setError(e.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 3) Скачать Excel
-  const handleDownload = async () => {
-    if (tableData.length === 0) return;
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Sheet1");
-    tableData.forEach((row) => {
-      worksheet.addRow(row);
-    });
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "output.xlsx";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  // ————————————————————————————————————————————
+  // ADD / APPLY КЛЮЧЕВЫХ СЛОВ
+  // ————————————————————————————————————————————
 
-  // 4) Модальное окно
   const openModal = () => setShowModal(true);
   const closeModal = () => setShowModal(false);
 
-  // Добавление нового правила (keywords, по контрагенту) через модальное окно
   const onKeywordSaved = async (contragent, category) => {
     try {
-      const newRule = await addKeyword({ contragent, category }).unwrap();
-      const updatedPatterns = [...patterns, newRule];
-      setPatterns(updatedPatterns);
-      const userId = localStorage.getItem("userId");
-      if (userId) {
-        localStorage.setItem(
-          `patterns_${userId}`,
-          JSON.stringify(updatedPatterns)
-        );
-      }
-      // Применяем новые правила к таблице
-      const updatedTable = applyKeywordsToTable(
-        tableData,
-        updatedPatterns,
-        assignmentKeywords || []
-      );
-      setTableData(updatedTable);
-      if (userId) {
-        localStorage.setItem(
-          `tableData_${userId}`,
-          JSON.stringify(updatedTable)
-        );
-      }
-      setShowModal(false);
-    } catch (err) {
-      console.error("Ошибка добавления ключевого слова в базу:", err);
+      const rule = await addKeyword({ contragent, category }).unwrap();
+      const upd = [...patterns, rule];
+      setPatterns(upd);
+      const uid = localStorage.getItem("userId");
+      if (uid) localStorage.setItem(`patterns_${uid}`, JSON.stringify(upd));
+      // сразу перезаполнить таблицу
+      const filled = applyPatterns(tableData, upd, assignmentKeywords);
+      setTableData(filled);
+      if (uid) localStorage.setItem(`tableData_${uid}`, JSON.stringify(filled));
+      closeModal();
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  // Кнопка "По вашим критериям": загружаем правила из keywords и assignment_keywords
+  const handleAddAssignmentRule = async () => {
+    const assignment = prompt("Назначение платежа:");
+    if (!assignment) return;
+    const category = prompt("Ключевое слово:");
+    if (!category) return;
+    try {
+      await addAssignmentKeyword({ assignment, category }).unwrap();
+      await refetchAssignmentKeywords();
+      const filled = applyPatterns(
+        tableData,
+        patterns,
+        assignmentKeywords.concat({ assignment, category })
+      );
+      setTableData(filled);
+      const uid = localStorage.getItem("userId");
+      if (uid) localStorage.setItem(`tableData_${uid}`, JSON.stringify(filled));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // «По вашим критериям»
   const handleApplyDefault = async () => {
     try {
-      const result = await fetchKeywords().unwrap();
-      const dbKeywords = result.map((kw) => ({
-        contragent: kw.contragent,
-        category: kw.category,
-      }));
-      const dbAssignmentRules = assignmentKeywords || [];
-      setPatterns(dbKeywords);
-      const userId = localStorage.getItem("userId");
-      if (userId) {
-        localStorage.setItem(`patterns_${userId}`, JSON.stringify(dbKeywords));
-      }
-      const updatedTable = applyKeywordsToTable(
-        tableData,
-        dbKeywords,
-        dbAssignmentRules
-      );
-      setTableData(updatedTable);
-      if (userId) {
-        localStorage.setItem(`tableData_${userId}`, JSON.stringify(updatedTable));
-      }
-    } catch (err) {
-      console.error("Ошибка применения ключевых слов:", err);
+      const db = await fetchKeywords().unwrap();
+      const kw = db.map((x) => ({ contragent: x.contragent, category: x.category }));
+      setPatterns(kw);
+      const uid = localStorage.getItem("userId");
+      if (uid) localStorage.setItem(`patterns_${uid}`, JSON.stringify(kw));
+
+      await refetchAssignmentKeywords();
+      const filled = applyPatterns(tableData, kw, assignmentKeywords);
+      setTableData(filled);
+      if (uid) localStorage.setItem(`tableData_${uid}`, JSON.stringify(filled));
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  // Функция применения правил к таблице: сначала ищем совпадение по "наименование получателя",
-  // если нет – ищем по "назначение платежа"
-  function applyKeywordsToTable(originalTable, dbKeywords, dbAssignmentRules) {
-    if (originalTable.length === 0) return originalTable;
-    const table = JSON.parse(JSON.stringify(originalTable));
-    const headerRow = table[0];
-    const contragentIndex = headerRow.findIndex((cell) =>
-      cell.toLowerCase().includes("наименование получателя")
-    );
-    const assignmentIndex = headerRow.findIndex((cell) =>
-      cell.toLowerCase().includes("назначение платежа")
-    );
-    let keywordIndex = headerRow.findIndex((cell) =>
-      cell.toLowerCase().includes("ключевое слово")
-    );
-    if (keywordIndex === -1) {
-      keywordIndex = assignmentIndex !== -1 ? assignmentIndex + 1 : headerRow.length;
-      headerRow.splice(keywordIndex, 0, "Ключевое слово");
-      for (let i = 1; i < table.length; i++) {
-        table[i].splice(keywordIndex, 0, "");
-      }
+  // Проставить «Ключевое слово» в таблице
+  function applyPatterns(orig, kwPatterns, asnPatterns) {
+    if (!orig.length) return orig;
+    const table = JSON.parse(JSON.stringify(orig));
+    const hdr = table[0].map((c) => c.toLowerCase());
+    const ci = hdr.findIndex((c) => c.includes("наименование получателя"));
+    const ai = hdr.findIndex((c) => c.includes("назначение платежа"));
+    let ki = hdr.findIndex((c) => c.includes("ключевое слово"));
+    if (ki < 0) {
+      ki = ai >= 0 ? ai + 1 : table[0].length;
+      table[0].splice(ki, 0, "Ключевое слово");
+      for (let i = 1; i < table.length; i++) table[i].splice(ki, 0, "");
     }
     for (let i = 1; i < table.length; i++) {
       const row = table[i];
-      const contragentText = (row[contragentIndex] || "").toLowerCase();
-      let matchedCategory = "";
-      // 1) Ищем правило по контрагенту
-      for (let rule of dbKeywords) {
-        if (
-          rule.contragent &&
-          contragentText.includes(rule.contragent.toLowerCase())
-        ) {
-          matchedCategory = rule.category;
+      let cat = "";
+      const ct = (row[ci] || "").toLowerCase();
+      for (const p of kwPatterns) {
+        if (p.contragent && ct.includes(p.contragent.toLowerCase())) {
+          cat = p.category;
           break;
         }
       }
-      // 2) Если правило по контрагенту не найдено и есть столбец "назначение платежа"
-      if (!matchedCategory && assignmentIndex !== -1) {
-        const assignmentText = (row[assignmentIndex] || "").toLowerCase();
-        for (let rule of dbAssignmentRules) {
-          if (
-            rule.assignment &&
-            assignmentText.includes(rule.assignment.toLowerCase())
-          ) {
-            matchedCategory = rule.category;
+      if (!cat && ai >= 0) {
+        const at = (row[ai] || "").toLowerCase();
+        for (const p of asnPatterns) {
+          if (p.assignment && at.includes(p.assignment.toLowerCase())) {
+            cat = p.category;
             break;
           }
         }
       }
-      row[keywordIndex] = matchedCategory;
+      row[ki] = cat;
     }
     return table;
   }
 
-  // ------------------- Сводные таблицы по контрагенту -------------------
-  function buildContragentKeywordMap(table) {
-    const map = {};
-    if (table.length < 2) return map;
-    const header = table[0].map((cell) => cell.toLowerCase());
-    const contragentIdx = header.findIndex((c) =>
-      c.includes("наименование получателя")
-    );
-    const keywordIdx = header.findIndex((c) => c.includes("ключевое слово"));
-    if (contragentIdx === -1 || keywordIdx === -1) return map;
-    for (let i = 1; i < table.length; i++) {
-      const row = table[i];
-      const cp = row[contragentIdx]?.trim() || "";
-      const kw = row[keywordIdx]?.trim() || "";
-      if (cp && kw) {
-        if (!map[cp]) {
-          map[cp] = kw;
-        }
-      }
-    }
-    return map;
-  }
-
-  function computeSummary(table, sourceColumnIndex, groupColumnIndex, keywordMap) {
-    const summaryMap = {};
-    for (let i = 1; i < table.length; i++) {
-      const row = table[i];
-      const groupKey = (row[groupColumnIndex] || "").trim() || "Не задан";
-      let amountStr = row[sourceColumnIndex] || "0";
-      amountStr = amountStr.replace(/\s/g, "").replace(",", ".");
-      const amount = parseFloat(amountStr) || 0;
-      if (amount === 0) continue;
-      if (!summaryMap[groupKey]) {
-        summaryMap[groupKey] = { count: 0, sum: 0 };
-      }
-      summaryMap[groupKey].count += 1;
-      summaryMap[groupKey].sum += amount;
-    }
-    const result = Object.entries(summaryMap).map(([group, data]) => ({
-      counterparty: group,
-      count: data.count,
-      sum: data.sum,
-      keyword: keywordMap[group] || "",
-    }));
-    const totalSum = result.reduce((acc, cur) => acc + cur.sum, 0);
-    return result.map((item) => ({
-      ...item,
-      share: totalSum ? ((item.sum / totalSum) * 100).toFixed(2) + "%" : "0%",
-    }));
-  }
+  // ————————————————————————————————————————————
+  // СВОДНАЯ ПО КОНТРАГЕНТУ
+  // ————————————————————————————————————————————
 
   const handleShowSummary = () => {
-    if (!tableData || tableData.length < 2) {
-      alert("Нет данных для сводной таблицы по контрагенту");
+    if (tableData.length < 2) {
+      alert("Нет данных");
       return;
     }
-    const headerRow = tableData[0].map((cell) => cell.toLowerCase());
-    const contragentIndex = headerRow.findIndex((c) =>
-      c.includes("наименование получателя")
-    );
-    const debitIndex = headerRow.findIndex((c) => c.includes("дебет")); // минус (дебет)
-    const creditIndex = headerRow.findIndex((c) => c.includes("кредит")); // плюс (кредит)
-    if (contragentIndex === -1 || debitIndex === -1 || creditIndex === -1) {
-      alert(
-        'Не найдены необходимые столбцы "наименование получателя", "дебет" или "кредит"'
-      );
+    const hdr = tableData[0].map((c) => c.toLowerCase());
+    const ci = hdr.findIndex((c) => c.includes("наименование получателя"));
+    const di = hdr.findIndex((c) => c.includes("дебет"));
+    const cr = hdr.findIndex((c) => c.includes("кредит"));
+    if (ci < 0 || di < 0 || cr < 0) {
+      alert("Не найдены столбцы");
       return;
     }
-    const contragentKeywordMap = buildContragentKeywordMap(tableData);
-    const summaryPos = computeSummary(
-      tableData,
-      creditIndex,
-      contragentIndex,
-      contragentKeywordMap
-    );
-    const summaryNeg = computeSummary(
-      tableData,
-      debitIndex,
-      contragentIndex,
-      contragentKeywordMap
-    );
-    setSummaryPositive(summaryPos);
-    setSummaryNegative(summaryNeg);
+    // карта contractor → keyword
+    const map = {};
+    const ki = hdr.findIndex((c) => c.includes("ключевое слово"));
+    tableData.slice(1).forEach((r) => {
+      const name = (r[ci] || "").trim();
+      const kw   = (r[ki] || "").trim();
+      if (name && kw && !map[name]) map[name] = kw;
+    });
+    setSummaryPositive(calcSummary(tableData, cr, ci, map));
+    setSummaryNegative(calcSummary(tableData, di, ci, map));
     setShowSummary(true);
   };
 
-  // ------------------- Сводные таблицы по назначению платежа -------------------
-  function buildAssignmentKeywordMap(assignmentRules) {
-    const map = {};
-    if (!assignmentRules) return map;
-    for (let rule of assignmentRules) {
-      if (rule.assignment) {
-        map[rule.assignment.toLowerCase().trim()] = rule.category;
-      }
-    }
-    return map;
-  }
+  // ————————————————————————————————————————————
+  // СВОДНАЯ ПО НАЗНАЧЕНИЮ
+  // ————————————————————————————————————————————
 
-  // Функция для дополнения карты назначений статьёй из таблицы (если в строках уже есть заполненное поле "Ключевое слово")
-  function augmentAssignmentMapFromTable(table, map) {
-    if (table.length < 2) return;
-    const header = table[0].map((cell) => cell.toLowerCase());
-    const assignmentIdx = header.findIndex((c) =>
-      c.includes("назначение платежа")
-    );
-    const keywordIdx = header.findIndex((c) =>
-      c.includes("ключевое слово")
-    );
-    if (assignmentIdx === -1 || keywordIdx === -1) return;
-    for (let i = 1; i < table.length; i++) {
-      const row = table[i];
-      const assignmentVal = (row[assignmentIdx] || "").trim().toLowerCase();
-      const keywordVal = (row[keywordIdx] || "").trim();
-      if (assignmentVal && keywordVal && !map[assignmentVal]) {
-        map[assignmentVal] = keywordVal;
-      }
-    }
-  }
-
-  function computeSummaryAssignment(
-    table,
-    sourceColumnIndex,
-    groupColumnIndex,
-    assignmentKeywordMap
-  ) {
-    const summaryMap = {};
-    for (let i = 1; i < table.length; i++) {
-      const row = table[i];
-      const groupKey = (row[groupColumnIndex] || "").trim() || "Не задан";
-      let amountStr = row[sourceColumnIndex] || "0";
-      amountStr = amountStr.replace(/\s/g, "").replace(",", ".");
-      const amount = parseFloat(amountStr) || 0;
-      if (amount === 0) continue;
-      if (!summaryMap[groupKey]) {
-        summaryMap[groupKey] = { count: 0, sum: 0 };
-      }
-      summaryMap[groupKey].count += 1;
-      summaryMap[groupKey].sum += amount;
-    }
-    const result = Object.entries(summaryMap).map(([group, data]) => ({
-      assignment: group,
-      count: data.count,
-      sum: data.sum,
-      keyword: assignmentKeywordMap[group.toLowerCase()] || "",
-    }));
-    const totalSum = result.reduce((acc, cur) => acc + cur.sum, 0);
-    return result.map((item) => ({
-      ...item,
-      share: totalSum ? ((item.sum / totalSum) * 100).toFixed(2) + "%" : "0%",
-    }));
-  }
-
-  const handleShowAssignmentSummary = () => {
-    if (!tableData || tableData.length < 2) {
-      alert("Нет данных для сводной таблицы по назначению платежа");
+  const handleShowAssignmentSummary = async () => {
+    if (tableData.length < 2) {
+      alert("Нет данных");
       return;
     }
-    const headerRow = tableData[0].map((cell) => cell.toLowerCase());
-    const assignmentIndex = headerRow.findIndex((c) => c.includes("назначение платежа"));
-    const debitIndex = headerRow.findIndex((c) => c.includes("дебет"));   // минус
-    const creditIndex = headerRow.findIndex((c) => c.includes("кредит")); // плюс
-    if (assignmentIndex === -1 || debitIndex === -1 || creditIndex === -1) {
-      alert("Не найдены необходимые столбцы для сводной таблицы по назначению платежа");
+    // обновим правила
+    await refetchAssignmentKeywords();
+    const hdr = tableData[0].map((c) => c.toLowerCase());
+    const ai = hdr.findIndex((c) => c.includes("назначение платежа"));
+    const di = hdr.findIndex((c) => c.includes("дебет"));
+    const cr = hdr.findIndex((c) => c.includes("кредит"));
+    if (ai < 0 || di < 0 || cr < 0) {
+      alert("Не найдены столбцы");
       return;
     }
-    let assignmentMap = buildAssignmentKeywordMap(assignmentKeywords || []);
-    // Дополнительное дополнение карты из таблицы, если в ней уже заполнен столбец "Ключевое слово"
-    augmentAssignmentMapFromTable(tableData, assignmentMap);
-    const summaryPos = computeSummaryAssignment(
-      tableData,
-      creditIndex,
-      assignmentIndex,
-      assignmentMap
+    // карта assignment → category
+    const am = {};
+    assignmentKeywords.forEach(({ assignment, category }) => {
+      if (assignment) am[assignment.toLowerCase().trim()] = category;
+    });
+    // дополним из уже проставленных «Ключевое слово»
+    const ki = hdr.findIndex((c) => c.includes("ключевое слово"));
+    tableData.slice(1).forEach((r) => {
+      const asn = (r[ai] || "").trim().toLowerCase();
+      const kw  = (r[ki] || "").trim();
+      if (asn && kw && !am[asn]) am[asn] = kw;
+    });
+
+    setSummaryAssignmentPositive(
+      calcAssignmentSummary(tableData, cr, ai, am)
     );
-    const summaryNeg = computeSummaryAssignment(
-      tableData,
-      debitIndex,
-      assignmentIndex,
-      assignmentMap
+    setSummaryAssignmentNegative(
+      calcAssignmentSummary(tableData, di, ai, am)
     );
-    setSummaryAssignmentPositive(summaryPos);
-    setSummaryAssignmentNegative(summaryNeg);
     setShowAssignmentSummary(true);
   };
-  
+
+  // ————————————————————————————————————————————
+  // РЕНДЕР
+  // ————————————————————————————————————————————
 
   return (
     <div className={styles.uploadContainer}>
-      <h1>Загрузка PDF и конвертация в Excel</h1>
+      <h1>Загрузка PDF → Excel</h1>
       <div className={styles.formGroup}>
         <input type="file" accept=".pdf" onChange={handleFileChange} />
         <button onClick={handleUpload} disabled={isLoading}>
@@ -430,162 +407,132 @@ const Upload = () => {
         </button>
       </div>
       {error && <p className={styles.error}>{error}</p>}
+
       {tableData.length > 0 && (
-        <div className={styles.result}>
-          <button onClick={handleDownload}>Скачать Excel</button>
-          <button onClick={() => setShowModal(true)}>
-            Добавить ключевое слово
-          </button>
-          <button onClick={handleApplyDefault}>По вашим критериям</button>
-          <button onClick={handleShowSummary}>
-            Показать таблицу по контрагенту
-          </button>
-          <button onClick={handleShowAssignmentSummary}>
-            Показать таблицу по назначению платежа
-          </button>
+        <>
+          <div className={styles.buttonsRow}>
+            <button onClick={handleExportWithSummaries}>
+              Скачать Excel
+            </button>
+            <button onClick={openModal}>
+              Добавить правило по контрагенту
+            </button>
+            <button onClick={handleAddAssignmentRule}>
+              Добавить правило по назначению
+            </button>
+            <button onClick={handleApplyDefault}>По вашим критериям</button>
+            <button onClick={handleShowSummary}>
+              Сводная по контрагенту
+            </button>
+            <button onClick={handleShowAssignmentSummary}>
+              Сводная по назначению
+            </button>
+          </div>
+
+          {/* основная таблица */}
           <table className={styles.table}>
             <thead>
               <tr>
-                {tableData[0].map((cell, index) => (
-                  <th key={index}>{cell}</th>
+                {tableData[0].map((h, i) => (
+                  <th key={i}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {tableData.slice(1).map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {row.map((cell, cellIndex) => (
-                    <td key={cellIndex}>{cell}</td>
+              {tableData.slice(1).map((r, i) => (
+                <tr key={i}>
+                  {r.map((c, j) => (
+                    <td key={j}>{c}</td>
                   ))}
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </>
       )}
+
+      {/* contractor‑modal */}
       {showModal && (
-        <AddKeywordModal onClose={() => setShowModal(false)} onSaved={onKeywordSaved} />
+        <AddKeywordModal
+          onClose={closeModal}
+          onSaved={onKeywordSaved}
+        />
       )}
+
+      {/* сводная по контрагенту */}
       {showSummary && (
         <div className={styles.summarySection}>
-          <h2>Сводная таблица по контрагенту</h2>
-          <h3>Плюсовые суммы [Кредит]</h3>
-          {summaryPositive.length > 0 ? (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Контрагент</th>
-                  <th>Операции</th>
-                  <th>Сумма</th>
-                  <th>Доля</th>
-                  <th>Статья</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summaryPositive.map((item, idx) => (
-                  <tr key={idx}>
-                    <td>{item.counterparty}</td>
-                    <td>{item.count}</td>
-                    <td>{item.sum}</td>
-                    <td>{item.share}</td>
-                    <td>{item.keyword}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p>Нет данных для плюсовых сумм по контрагенту</p>
-          )}
-          <h3>Минусовые суммы [Дебет]</h3>
-          {summaryNegative.length > 0 ? (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Контрагент</th>
-                  <th>Операции</th>
-                  <th>Сумма</th>
-                  <th>Доля</th>
-                  <th>Статья</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summaryNegative.map((item, idx) => (
-                  <tr key={idx}>
-                    <td>{item.counterparty}</td>
-                    <td>{item.count}</td>
-                    <td>{item.sum}</td>
-                    <td>{item.share}</td>
-                    <td>{item.keyword}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p>Нет данных для минусовых сумм по контрагенту</p>
-          )}
+          <h2>Сводная по контрагенту</h2>
+          <h3>Плюсовые (Кредит)</h3>
+          <SummaryTable data={summaryPositive} />
+          <h3>Минусовые (Дебет)</h3>
+          <SummaryTable data={summaryNegative} />
         </div>
       )}
+
+      {/* сводная по назначению */}
       {showAssignmentSummary && (
         <div className={styles.summarySection}>
-          <h2>Сводная таблица по назначению платежа</h2>
-          <h3>Плюсовые суммы [Кредит]</h3>
-          {summaryAssignmentPositive.length > 0 ? (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Назначение</th>
-                  <th>Операции</th>
-                  <th>Сумма</th>
-                  <th>Доля</th>
-                  <th>Статья</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summaryAssignmentPositive.map((item, idx) => (
-                  <tr key={idx}>
-                    <td>{item.assignment}</td>
-                    <td>{item.count}</td>
-                    <td>{item.sum}</td>
-                    <td>{item.share}</td>
-                    <td>{item.keyword}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p>Нет данных для плюсовых сумм по назначению платежа</p>
-          )}
-          <h3>Минусовые суммы [Дебет]</h3>
-          {summaryAssignmentNegative.length > 0 ? (
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Назначение</th>
-                  <th>Операции</th>
-                  <th>Сумма</th>
-                  <th>Доля</th>
-                  <th>Статья</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summaryAssignmentNegative.map((item, idx) => (
-                  <tr key={idx}>
-                    <td>{item.assignment}</td>
-                    <td>{item.count}</td>
-                    <td>{item.sum}</td>
-                    <td>{item.share}</td>
-                    <td>{item.keyword}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p>Нет данных для минусовых сумм по назначению платежа</p>
-          )}
+          <h2>Сводная по назначению платежа</h2>
+          <h3>Плюсовые (Кредит)</h3>
+          <AssignmentSummaryTable data={summaryAssignmentPositive} />
+          <h3>Минусовые (Дебет)</h3>
+          <AssignmentSummaryTable data={summaryAssignmentNegative} />
         </div>
       )}
     </div>
   );
 };
+
+// Вспомогательные компоненты для вывода сводки
+const SummaryTable = ({ data }) => (
+  <table className={styles.table}>
+    <thead>
+      <tr>
+        <th>Контрагент</th>
+        <th>Операции</th>
+        <th>Сумма</th>
+        <th>Доля</th>
+        <th>Статья</th>
+      </tr>
+    </thead>
+    <tbody>
+      {data.map((row, i) => (
+        <tr key={i}>
+          <td>{row.group}</td>
+          <td>{row.count}</td>
+          <td>{row.sum}</td>
+          <td>{row.share}</td>
+          <td>{row.keyword}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+);
+
+const AssignmentSummaryTable = ({ data }) => (
+  <table className={styles.table}>
+    <thead>
+      <tr>
+        <th>Назначение</th>
+        <th>Операции</th>
+        <th>Сумма</th>
+        <th>Доля</th>
+        <th>Статья</th>
+      </tr>
+    </thead>
+    <tbody>
+      {data.map((row, i) => (
+        <tr key={i}>
+          <td>{row.assignment}</td>
+          <td>{row.count}</td>
+          <td>{row.sum}</td>
+          <td>{row.share}</td>
+          <td>{row.keyword}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+);
 
 export default Upload;
