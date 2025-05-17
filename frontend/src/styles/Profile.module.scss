@@ -1,19 +1,56 @@
-/* src/styles/Profile.module.scss */
-.profileContainer {
-    max-width: 600px;
-    margin: 30px auto;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 4px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    font-family: Arial, sans-serif;
+// src/styles/Profile.module.scss
+
+$primary:       #1890ff;
+$error-color:   #e74c3c;
+$bg:            #ffffff;
+$shadow:        rgba(0, 0, 0, 0.1);
+
+.container {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: $bg;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px $shadow;
+}
+
+.title {
+  font-size: 1.75rem;
+  color: $primary;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.info {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+
+  @media (min-width: 600px) {
+    grid-template-columns: 1fr 1fr;
   }
-  
-  .info {
-    margin-top: 20px;
-    font-size: 16px;
-    p {
-      margin: 10px 0;
-    }
-  }
-  
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.label {
+  font-weight: 600;
+  color: darken($primary, 20%);
+}
+
+.value {
+  color: #333;
+}
+
+.loader,
+.error {
+  text-align: center;
+  font-size: 1.25rem;
+}
+
+.error {
+  color: $error-color;
+}

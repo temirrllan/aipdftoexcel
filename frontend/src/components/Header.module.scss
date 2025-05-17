@@ -1,39 +1,93 @@
 /* src/components/Header.module.scss */
+
 .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #1890ff;
-    color: #fff;
-    padding: 15px 30px;
-  }
-  
-  .brand a {
-    font-size: 24px;
-    font-weight: bold;
-    color: #fff;
-    text-decoration: none;
-  }
-  
-  .nav ul {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #1890ff;
+  padding: 0.75rem 1.5rem;
+  color: #fff;
+  z-index: 10;
+}
+
+.brand a {
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+/* Навигация */
+.nav {
+  ul {
     display: flex;
     list-style: none;
     margin: 0;
     padding: 0;
+
+    li {
+      margin-left: 1.25rem;
+
+      a {
+        color: #fff;
+        text-decoration: none;
+        font-size: 1rem;
+        transition: color 0.2s;
+
+        &:hover {
+          color: #d0eaff;
+        }
+      }
+    }
   }
-  
-  .nav li {
-    margin-left: 20px;
+}
+
+/* Бургер */
+.burger {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* Мобильная адаптация */
+@media (max-width: 768px) {
+  .nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #1890ff;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease;
+
+    &.show {
+      max-height: 300px; /* или достаточно, чтобы влезли все пункты */
+    }
+
+    ul {
+      flex-direction: column;
+
+      li {
+        margin: 0.75rem 0;
+        text-align: center;
+      }
+    }
   }
-  
-  .nav li a {
-    color: #fff;
-    text-decoration: none;
-    font-size: 16px;
-    transition: color 0.3s ease;
+
+  .burger {
+    display: block;
   }
-  
-  .nav li a:hover {
-    color: #d0eaff;
+
+  /* Скрываем стандартный горизонтальный список в шапке */
+  .nav ul {
+    display: none;
   }
-  
+  .nav.show ul {
+    display: flex;
+  }
+}

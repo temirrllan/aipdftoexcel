@@ -1,46 +1,64 @@
-import React, { useEffect, useState } from 'react';
+// src/pages/Profile.jsx
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import styles from '../styles/Profile.module.scss'
 
 const Profile = () => {
-  const [user, setUser]   = useState(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token')
     if (!token) {
-      setError('Пожалуйста, войдите в систему');
-      setLoading(false);
-      return;
+      navigate('/login')
+      return
     }
 
-    fetch('http://localhost:3001/auth/profile', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Не удалось получить профиль');
-        return res.json();
-      })
-      .then(data => {
-        setUser(data);
-      })
-      .catch(err => {
-        console.error(err);
-        setError(err.message);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    const fetchProfile = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch('http://localhost:3001/auth/profile', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          throw new Error(data.message || 'Не удалось получить профиль')
+        }
+        setUser(data)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-  if (loading) return <p>Загрузка...</p>;
-  if (error)   return <p style={{ color: 'red' }}>{error}</p>;
+    fetchProfile()
+  }, [navigate])
+
+  if (loading) return <div className={styles.loader}>Загрузка...</div>
+  if (error)   return <div className={styles.error}>{error}</div>
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Профиль пользователя</h1>
-      <p><strong>ID:</strong> {user.id}</p>
-      <p><strong>Имя пользователя:</strong> {user.username}</p>
-      <p><strong>Email:</strong> {user.email}</p>
-    </div>
-  );
-};
+    <main className={styles.container}>
+      <h1 className={styles.title}>Профиль пользователя</h1>
+      <div className={styles.info}>
+        <div className={styles.row}>
+          <span className={styles.label}>ID:</span>
+          <span className={styles.value}>{user.id}</span>
+        </div>
+        <div className={styles.row}>
+          <span className={styles.label}>Имя:</span>
+          <span className={styles.value}>{user.username}</span>
+        </div>
+        <div className={styles.row}>
+          <span className={styles.label}>Email:</span>
+          <span className={styles.value}>{user.email}</span>
+        </div>
+      </div>
+    </main>
+  )
+}
 
-export default Profile;
+export default Profile

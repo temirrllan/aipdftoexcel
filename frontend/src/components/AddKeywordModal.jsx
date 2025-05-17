@@ -1,5 +1,6 @@
-// src/components/AddKeywordModal.jsx
 import React, { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTimes } from '@fortawesome/free-solid-svg-icons';
 import styles from './AddKeywordModal.module.scss';
 
 const AddKeywordModal = ({ onClose, onSaved }) => {
@@ -7,40 +8,53 @@ const AddKeywordModal = ({ onClose, onSaved }) => {
   const [category, setCategory] = useState('');
 
   const handleSave = () => {
-    // Если хотя бы одно из полей не заполнено, можно вывести сообщение
     if (!contragent.trim() || !category.trim()) {
       alert('Заполните оба поля: контрагент и ключевое слово');
       return;
     }
-    // Вызываем onSaved с введенными данными
-    onSaved(contragent, category);
+    onSaved(contragent.trim(), category.trim());
   };
 
   return (
-    <div className={styles.modalBackdrop}>
-      <div className={styles.modalContent}>
-        <h2>Добавить ключевое слово</h2>
-        <label>
-          Наименование получателя (Контрагент):
+    <div className={styles.backdrop} onClick={onClose}>
+      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+        <button className={styles.closeButton} onClick={onClose} aria-label="Закрыть">
+          <FontAwesomeIcon icon={faTimes} />
+        </button>
+        <h2 className={styles.title}>Добавить ключевое слово</h2>
+        <div className={styles.field}>
+          <label htmlFor="contragent" className={styles.label}>
+            Наименование получателя
+          </label>
           <input
+            id="contragent"
             type="text"
+            className={styles.input}
             value={contragent}
-            onChange={(e) => setContragent(e.target.value)}
+            onChange={e => setContragent(e.target.value)}
             placeholder="Например, ООО Ромашка"
           />
-        </label>
-        <label>
-          Ключевое слово:
+        </div>
+        <div className={styles.field}>
+          <label htmlFor="category" className={styles.label}>
+            Ключевое слово
+          </label>
           <input
+            id="category"
             type="text"
+            className={styles.input}
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={e => setCategory(e.target.value)}
             placeholder="Например, Ромашка"
           />
-        </label>
-        <div className={styles.buttons}>
-          <button onClick={onClose}>Отмена</button>
-          <button onClick={handleSave}>Сохранить</button>
+        </div>
+        <div className={styles.actions}>
+          <button className={styles.cancelButton} onClick={onClose}>
+            Отмена
+          </button>
+          <button className={styles.saveButton} onClick={handleSave}>
+            Сохранить
+          </button>
         </div>
       </div>
     </div>

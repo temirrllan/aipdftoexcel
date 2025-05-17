@@ -1,13 +1,14 @@
+// vite.config.js
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react      from '@vitejs/plugin-react'
+import path       from 'path'
 
 export default defineConfig({
-  plugins: [react()],
-  css: {
-    preprocessorOptions: {
-      scss: {
-        // Можно указать глобальные переменные или миксины, если потребуется
-      },
+  plugins: [ react() ],
+  resolve: {
+    alias: {
+      // теперь '@' указывает на папку 'src'
+      '@': path.resolve(__dirname, 'src'),
     },
   },
 })

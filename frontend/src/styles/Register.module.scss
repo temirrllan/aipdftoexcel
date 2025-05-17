@@ -1,38 +1,107 @@
-/* src/styles/Register.module.scss */
-.registerContainer {
-    max-width: 400px;
-    margin: 50px auto;
-    padding: 20px;
-    background-color: #fff;
+// src/styles/Register.module.scss
+
+$primary-color: #1890ff;
+$error-color:   #e74c3c;
+$shadow-color:  rgba(0, 0, 0, 0.1);
+$bg-color:      #ffffff;
+$border-color:  #ccc;
+
+.container {
+  max-width: 400px;
+  margin: 3rem auto;
+  padding: 2rem;
+  background: $bg-color;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px $shadow-color;
+}
+
+.title {
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+
+  label {
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+  }
+
+  input {
+    padding: 0.75rem;
+    font-size: 1rem;
+    border: 1px solid $border-color;
     border-radius: 4px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .registerForm {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    label {
-      font-size: 14px;
-    }
-    input {
-      padding: 8px;
-      font-size: 14px;
-      border: 1px solid #ccc;
-      border-radius: 2px;
-    }
-    button {
-      padding: 10px;
-      background-color: #1890ff;
-      color: #fff;
-      border: none;
-      border-radius: 2px;
-      cursor: pointer;
+    transition: border-color 0.2s;
+    
+    &:focus {
+      border-color: $primary-color;
+      outline: none;
     }
   }
-  
-  .error {
-    color: red;
-    font-size: 12px;
+}
+
+.error {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: $error-color;
+  text-align: center;
+}
+
+.submit {
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  background: $primary-color;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:disabled {
+    background: lighten($primary-color, 30%);
+    cursor: not-allowed;
   }
-  
+}
+
+.footerText {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+
+  .link {
+    color: $primary-color;
+    text-decoration: none;
+    font-weight: 600;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    margin: 2rem 1rem;
+    padding: 1rem;
+  }
+
+  .title {
+    font-size: 1.25rem;
+  }
+
+  .submit {
+    font-size: 0.9rem;
+    padding: 0.6rem;
+  }
+}

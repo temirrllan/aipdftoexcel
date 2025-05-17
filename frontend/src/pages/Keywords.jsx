@@ -1,3 +1,4 @@
+// src/pages/Keywords.jsx
 import React, { useState } from 'react';
 import {
   useGetKeywordsQuery,
@@ -11,235 +12,300 @@ import {
   useUpdateAssignmentKeywordMutation,
   useDeleteAssignmentKeywordMutation,
 } from '../features/assignmentKeywords/assignmentKeywordsApi';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faEdit,
+  faTrash,
+  faSave,
+  faTimes,
+  faPlus,
+} from '@fortawesome/free-solid-svg-icons';
 import styles from '../styles/Keywords.module.scss';
 
 const Keywords = () => {
   const userId = localStorage.getItem('userId');
 
-  // контрагенты
-  const {
-    data: keywords = [],
-    isLoading: isLoadingKeywords,
-    error: errorKeywords,
-    refetch: refetchKeywords,
-  } = useGetKeywordsQuery(userId, { skip: !userId, refetchOnMountOrArgChange: true });
-  const [addKeyword] = useAddKeywordMutation();
-  const [updateKeyword] = useUpdateKeywordMutation();
+  // Контрагенты
+  const { data: keywords = [], isLoading: isLoadingKw, error: errorKw } =
+    useGetKeywordsQuery(userId, { skip: !userId, refetchOnMountOrArgChange: true });
+  const [addKeyword, { isLoading: addingKw }] = useAddKeywordMutation();
+  const [updateKeyword, { isLoading: updatingKw }] = useUpdateKeywordMutation();
   const [deleteKeyword] = useDeleteKeywordMutation();
 
-  // назначения
+  // Назначения
   const {
     data: assignmentKeywords = [],
-    isLoading: isLoadingAssignments,
-    error: errorAssignments,
-    refetch: refetchAssignments,
-  } = useGetAssignmentKeywordsQuery(userId, { skip: !userId, refetchOnMountOrArgChange: true });
-  const [addAssignmentKeyword] = useAddAssignmentKeywordMutation();
-  const [updateAssignmentKeyword] = useUpdateAssignmentKeywordMutation();
-  const [deleteAssignmentKeyword] = useDeleteAssignmentKeywordMutation();
+    isLoading: isLoadingAsn,
+    error: errorAsn,
+  } = useGetAssignmentKeywordsQuery(userId, {
+    skip: !userId,
+    refetchOnMountOrArgChange: true,
+  });
+  const [addAssignment, { isLoading: addingAsn }] = useAddAssignmentKeywordMutation();
+  const [updateAssignment, { isLoading: updatingAsn }] =
+    useUpdateAssignmentKeywordMutation();
+  const [deleteAssignment] = useDeleteAssignmentKeywordMutation();
 
-  // state для контрагентов
-  const [newKeyword, setNewKeyword] = useState({ contragent: '', category: '' });
-  const [editingKeywordId, setEditingKeywordId] = useState(null);
-  const [editKeywordData, setEditKeywordData] = useState({ contragent: '', category: '' });
+  // State контрагентов
+  const [newKw, setNewKw] = useState({ contragent: '', category: '' });
+  const [editKwId, setEditKwId] = useState(null);
+  const [editKw, setEditKw] = useState({ contragent: '', category: '' });
 
-  // state для назначений
-  const [editingAssignmentId, setEditingAssignmentId] = useState(null);
-  const [editAssignmentData, setEditAssignmentData] = useState({ assignment: '', category: '' });
+  // State назначений
+  const [newAsn, setNewAsn] = useState({ assignment: '', category: '' });
+  const [editAsnId, setEditAsnId] = useState(null);
+  const [editAsn, setEditAsn] = useState({ assignment: '', category: '' });
 
-  // ---- контрагенты ----
   const handleAddKeyword = async () => {
-    if (!newKeyword.contragent.trim() || !newKeyword.category.trim()) return;
-    await addKeyword(newKeyword).unwrap();
-    setNewKeyword({ contragent: '', category: '' });
-    refetchKeywords();
+    if (!newKw.contragent || !newKw.category) return;
+    await addKeyword(newKw).unwrap();
+    setNewKw({ contragent: '', category: '' });
   };
-  const handleEditKeyword = (kw) => {
-    setEditingKeywordId(kw.id);
-    setEditKeywordData({ contragent: kw.contragent, category: kw.category });
+  const handleSaveKeyword = async () => {
+    await updateKeyword({ id: editKwId, ...editKw }).unwrap();
+    setEditKwId(null);
   };
-  const handleUpdateKeyword = async () => {
-    await updateKeyword({ id: editingKeywordId, ...editKeywordData }).unwrap();
-    setEditingKeywordId(null);
-    refetchKeywords();
-  };
-  const handleDeleteKeyword = async (id) => {
-    await deleteKeyword(id).unwrap();
-    refetchKeywords();
+  const handleDelKeyword = async (id) => {
+    if (window.confirm('Удалить контрагента?')) await deleteKeyword(id).unwrap();
   };
 
-  // ---- назначения ----
   const handleAddAssignment = async () => {
-    const assignment = prompt('Введите назначение платежа:');
-    if (!assignment?.trim()) return;
-    const category = prompt('Введите ключевое слово для назначения:');
-    if (!category?.trim()) return;
-    await addAssignmentKeyword({ assignment, category }).unwrap();
-    refetchAssignments();
+    if (!newAsn.assignment || !newAsn.category) return;
+    await addAssignment(newAsn).unwrap();
+    setNewAsn({ assignment: '', category: '' });
   };
-  const handleEditAssignment = (item) => {
-    setEditingAssignmentId(item.id);
-    setEditAssignmentData({ assignment: item.assignment, category: item.category });
+  const handleSaveAsn = async () => {
+    await updateAssignment({ id: editAsnId, ...editAsn }).unwrap();
+    setEditAsnId(null);
   };
-  const handleUpdateAssignment = async () => {
-    await updateAssignmentKeyword({ id: editingAssignmentId, ...editAssignmentData }).unwrap();
-    setEditingAssignmentId(null);
-    refetchAssignments();
-  };
-  const handleDeleteAssignment = async (id) => {
-    await deleteAssignmentKeyword(id).unwrap();
-    refetchAssignments();
+  const handleDelAsn = async (id) => {
+    if (window.confirm('Удалить назначение?')) await deleteAssignment(id).unwrap();
   };
 
   return (
-    <div className={styles.keywordsContainer}>
-      <h1>Управление ключевыми словами</h1>
+    <div className={styles.wrapper}>
+      <h1 className={styles.title}>Управление ключевыми словами</h1>
 
-      {/* ========= контрагенты ========= */}
-      <section className={styles.section}>
-        <h2>По контрагенту</h2>
-        {isLoadingKeywords && <p>Загрузка...</p>}
-        {errorKeywords && <p>Ошибка загрузки</p>}
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Контрагент</th>
-              <th>Ключевое слово</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {keywords.map((kw) => (
-              <tr key={kw.id}>
-                <td>{kw.id}</td>
+      <div className={styles.cards}>
+        {/* Карточка: Контрагенты */}
+        <section className={styles.card}>
+          <h2>По контрагенту</h2>
+          {isLoadingKw && <p className={styles.note}>Загрузка…</p>}
+          {errorKw && <p className={styles.error}>Ошибка загрузки</p>}
+
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Контрагент</th>
+                <th>Ключевое слово</th>
+                <th>⏵</th>
+              </tr>
+            </thead>
+            <tbody>
+              {keywords.map((kw) => (
+                <tr key={kw.id}>
+                  <td>{kw.id}</td>
+                  <td>
+                    {editKwId === kw.id ? (
+                      <input
+                        className={styles.input}
+                        value={editKw.contragent}
+                        onChange={(e) =>
+                          setEditKw({ ...editKw, contragent: e.target.value })
+                        }
+                      />
+                    ) : (
+                      kw.contragent
+                    )}
+                  </td>
+                  <td>
+                    {editKwId === kw.id ? (
+                      <input
+                        className={styles.input}
+                        value={editKw.category}
+                        onChange={(e) =>
+                          setEditKw({ ...editKw, category: e.target.value })
+                        }
+                      />
+                    ) : (
+                      kw.category
+                    )}
+                  </td>
+                  <td className={styles.actions}>
+                    {editKwId === kw.id ? (
+                      <>
+                        <button onClick={handleSaveKeyword} disabled={updatingKw}>
+                          <FontAwesomeIcon icon={faSave} />
+                        </button>
+                        <button onClick={() => setEditKwId(null)}>
+                          <FontAwesomeIcon icon={faTimes} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditKwId(kw.id);
+                            setEditKw({ contragent: kw.contragent, category: kw.category });
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button onClick={() => handleDelKeyword(kw.id)}>
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+
+              {/* Форма добавления */}
+              <tr className={styles.newRow}>
+                <td>—</td>
                 <td>
-                  {editingKeywordId === kw.id ? (
-                    <input
-                      value={editKeywordData.contragent}
-                      onChange={(e) => setEditKeywordData({ ...editKeywordData, contragent: e.target.value })}
-                    />
-                  ) : (
-                    kw.contragent
-                  )}
+                  <input
+                    className={styles.input}
+                    placeholder="Контрагент"
+                    value={newKw.contragent}
+                    onChange={(e) =>
+                      setNewKw({ ...newKw, contragent: e.target.value })
+                    }
+                  />
                 </td>
                 <td>
-                  {editingKeywordId === kw.id ? (
-                    <input
-                      value={editKeywordData.category}
-                      onChange={(e) => setEditKeywordData({ ...editKeywordData, category: e.target.value })}
-                    />
-                  ) : (
-                    kw.category
-                  )}
+                  <input
+                    className={styles.input}
+                    placeholder="Ключевое слово"
+                    value={newKw.category}
+                    onChange={(e) =>
+                      setNewKw({ ...newKw, category: e.target.value })
+                    }
+                  />
                 </td>
-                <td>
-                  {editingKeywordId === kw.id ? (
-                    <>
-                      <button onClick={handleUpdateKeyword}>💾</button>
-                      <button onClick={() => setEditingKeywordId(null)}>✖</button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => handleEditKeyword(kw)}>✎</button>
-                      <button onClick={() => handleDeleteKeyword(kw.id)}>🗑</button>
-                    </>
-                  )}
+                <td className={styles.actions}>
+                  <button onClick={handleAddKeyword} disabled={addingKw}>
+                    <FontAwesomeIcon icon={faPlus} />
+                  </button>
                 </td>
               </tr>
-            ))}
-            <tr>
-              <td>—</td>
-              <td>
-                <input
-                  placeholder="Контрагент"
-                  value={newKeyword.contragent}
-                  onChange={(e) => setNewKeyword({ ...newKeyword, contragent: e.target.value })}
-                />
-              </td>
-              <td>
-                <input
-                  placeholder="Ключевое слово"
-                  value={newKeyword.category}
-                  onChange={(e) => setNewKeyword({ ...newKeyword, category: e.target.value })}
-                />
-              </td>
-              <td>
-                <button onClick={handleAddKeyword}>Добавить</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+            </tbody>
+          </table>
+        </section>
 
-      {/* ======== назначения ======== */}
-      <section className={styles.section}>
-        <h2>По назначению платежа</h2>
-        {isLoadingAssignments && <p>Загрузка...</p>}
-        {errorAssignments && <p>Ошибка загрузки</p>}
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Назначение</th>
-              <th>Ключевое слово</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assignmentKeywords.map((item) => (
-              <tr key={item.id}>
-                <td>{item.id}</td>
+        {/* Карточка: Назначения */}
+        <section className={styles.card}>
+          <h2>По назначению</h2>
+          {isLoadingAsn && <p className={styles.note}>Загрузка…</p>}
+          {errorAsn && <p className={styles.error}>Ошибка загрузки</p>}
+
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Назначение</th>
+                <th>Ключевое слово</th>
+                <th>⏵</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assignmentKeywords.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.id}</td>
+                  <td>
+                    {editAsnId === item.id ? (
+                      <input
+                        className={styles.input}
+                        value={editAsn.assignment}
+                        onChange={(e) =>
+                          setEditAsn({ ...editAsn, assignment: e.target.value })
+                        }
+                      />
+                    ) : (
+                      item.assignment
+                    )}
+                  </td>
+                  <td>
+                    {editAsnId === item.id ? (
+                      <input
+                        className={styles.input}
+                        value={editAsn.category}
+                        onChange={(e) =>
+                          setEditAsn({ ...editAsn, category: e.target.value })
+                        }
+                      />
+                    ) : (
+                      item.category
+                    )}
+                  </td>
+                  <td className={styles.actions}>
+                    {editAsnId === item.id ? (
+                      <>
+                        <button onClick={handleSaveAsn} disabled={updatingAsn}>
+                          <FontAwesomeIcon icon={faSave} />
+                        </button>
+                        <button onClick={() => setEditAsnId(null)}>
+                          <FontAwesomeIcon icon={faTimes} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditAsnId(item.id);
+                            setEditAsn({
+                              assignment: item.assignment,
+                              category: item.category,
+                            });
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button onClick={() => handleDelAsn(item.id)}>
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+
+              {/* Форма добавления */}
+              <tr className={styles.newRow}>
+                <td>—</td>
                 <td>
-                  {editingAssignmentId === item.id ? (
-                    <input
-                      value={editAssignmentData.assignment}
-                      onChange={(e) =>
-                        setEditAssignmentData({ ...editAssignmentData, assignment: e.target.value })
-                      }
-                    />
-                  ) : (
-                    item.assignment
-                  )}
+                  <input
+                    className={styles.input}
+                    placeholder="Назначение"
+                    value={newAsn.assignment}
+                    onChange={(e) =>
+                      setNewAsn({ ...newAsn, assignment: e.target.value })
+                    }
+                  />
                 </td>
                 <td>
-                  {editingAssignmentId === item.id ? (
-                    <input
-                      value={editAssignmentData.category}
-                      onChange={(e) =>
-                        setEditAssignmentData({ ...editAssignmentData, category: e.target.value })
-                      }
-                    />
-                  ) : (
-                    item.category
-                  )}
+                  <input
+                    className={styles.input}
+                    placeholder="Ключевое слово"
+                    value={newAsn.category}
+                    onChange={(e) =>
+                      setNewAsn({ ...newAsn, category: e.target.value })
+                    }
+                  />
                 </td>
-                <td>
-                  {editingAssignmentId === item.id ? (
-                    <>
-                      <button onClick={handleUpdateAssignment}>💾</button>
-                      <button onClick={() => setEditingAssignmentId(null)}>✖</button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={() => handleEditAssignment(item)}>✎</button>
-                      <button onClick={() => handleDeleteAssignment(item.id)}>🗑</button>
-                    </>
-                  )}
+                <td className={styles.actions}>
+                  <button onClick={handleAddAssignment} disabled={addingAsn}>
+                    <FontAwesomeIcon icon={faPlus} />
+                  </button>
                 </td>
               </tr>
-            ))}
-            <tr>
-              <td>—</td>
-              <td colSpan={2}>
-                <button onClick={handleAddAssignment}>+ Добавить правило</button>
-              </td>
-              <td />
-            </tr>
-          </tbody>
-        </table>
-      </section>
+            </tbody>
+          </table>
+        </section>
+      </div>
     </div>
-);
-}
+  );
+};
+
 export default Keywords;
