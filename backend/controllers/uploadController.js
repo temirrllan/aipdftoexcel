@@ -14,7 +14,7 @@ exports.convertPdf = (req, res) => {
   fs.writeFileSync(tempPath, req.file.buffer);
 
   // Запускаем Python-скрипт, передавая путь к PDF
-  const pyProcess = spawn('python', ['parse_pdf.py', tempPath]);
+const pyProcess = spawn('py', ['-3', 'parse_pdf.py', tempPath]);
 
   let dataString = '';
   let errorString = '';
