@@ -1,0 +1,13 @@
+/* src/styles/Dashboard.module.scss */
+.dashboard {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #f0f2f5;
+  }
+  
+  .main {
+    flex: 1;
+    padding: 20px;
+  }
+  
