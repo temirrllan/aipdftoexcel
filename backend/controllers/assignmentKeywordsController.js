@@ -1,100 +1,85 @@
 // controllers/assignmentKeywordsController.js
-const pool = require('../config/db');
+const asyncHandler = require('express-async-handler');
+const pool         = require('../config/db');
+const ApiError     = require('../utils/ApiError');
+
+/** Валидация текстовых полей */
+function validateFields(fields, body) {
+  for (const f of fields) {
+    const v = body[f];
+    if (!v || typeof v !== 'string' || !v.trim()) {
+      throw new ApiError(400, `Поле "${f}" обязательно для заполнения`);
+    }
+    body[f] = v.trim();
+  }
+}
 
 // GET   /assignment_keywords/
-// Получение списка assignment‑ключевых слов для текущего пользователя
-exports.getAssignmentKeywords = async (req, res) => {
+// Получить все правила пользователя
+exports.getAssignmentKeywords = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
-  try {
-    const result = await pool.query(
-      `SELECT id, user_id, assignment, category
-         FROM assignment_keywords
-        WHERE user_id = $1
-        ORDER BY id`,
-      [userId]
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Ошибка получения assignment-ключевых слов:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-};
+  const { rows } = await pool.query(
+    `SELECT id, user_id, assignment, category
+       FROM assignment_keywords
+      WHERE user_id = $1
+      ORDER BY id`,
+    [userId]
+  );
+  res.json(rows);
+});
 
 // POST  /assignment_keywords/
-// Добавление нового assignment‑ключевого слова
-exports.addAssignmentKeyword = async (req, res) => {
+// Добавить правило
+exports.addAssignmentKeyword = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
-  const { assignment, category } = req.body;
-  if (!assignment?.trim() || !category?.trim()) {
-    return res
-      .status(400)
-      .json({ error: 'Поля "assignment" и "category" обязательны для заполнения' });
-  }
-  try {
-    const result = await pool.query(
-      `INSERT INTO assignment_keywords (user_id, assignment, category)
-           VALUES ($1, $2, $3)
-       RETURNING id, user_id, assignment, category`,
-      [userId, assignment.trim(), category.trim()]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Ошибка добавления assignment-ключевого слова:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-};
+  validateFields(['assignment', 'category'], req.body);
+
+  const { rows } = await pool.query(
+    `INSERT INTO assignment_keywords (user_id, assignment, category)
+         VALUES ($1, $2, $3)
+     RETURNING id, user_id, assignment, category`,
+    [userId, req.body.assignment, req.body.category]
+  );
+  res.status(201).json(rows[0]);
+});
 
 // PUT   /assignment_keywords/:id
-// Обновление существующего assignment‑правила
-exports.updateAssignmentKeyword = async (req, res) => {
+// Обновить правило
+exports.updateAssignmentKeyword = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
-  const id = req.params.id;
-  const { assignment, category } = req.body;
-  if (!assignment?.trim() || !category?.trim()) {
-    return res
-      .status(400)
-      .json({ error: 'Поля "assignment" и "category" обязательны для заполнения' });
-  }
-  try {
-    const result = await pool.query(
-      `UPDATE assignment_keywords
-          SET assignment = $1,
-              category   = $2,
-              updated_at = CURRENT_TIMESTAMP
-        WHERE id = $3
-          AND user_id = $4
-      RETURNING id, user_id, assignment, category`,
-      [assignment.trim(), category.trim(), id, userId]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Не найдено или нет доступа' });
-    }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Ошибка обновления assignment-ключевого слова:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-};
+  const id     = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) throw new ApiError(400, 'Неверный ID');
+
+  validateFields(['assignment', 'category'], req.body);
+
+  const { rows } = await pool.query(
+    `UPDATE assignment_keywords
+        SET assignment = $1,
+            category   = $2,
+            updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+        AND user_id = $4
+    RETURNING id, user_id, assignment, category`,
+    [req.body.assignment, req.body.category, id, userId]
+  );
+  if (!rows.length) throw new ApiError(404, 'Правило не найдено или доступа нет');
+  res.json(rows[0]);
+});
 
 // DELETE /assignment_keywords/:id
-// Удаление assignment‑правила
-exports.deleteAssignmentKeyword = async (req, res) => {
+// Удалить правило
+exports.deleteAssignmentKeyword = asyncHandler(async (req, res) => {
   const userId = req.user.userId;
-  const id = req.params.id;
-  try {
-    const result = await pool.query(
-      `DELETE FROM assignment_keywords
-        WHERE id = $1
-          AND user_id = $2
-      RETURNING id`,
-      [id, userId]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Не найдено или нет доступа' });
-    }
-    res.json({ message: 'Удалено' });
-  } catch (error) {
-    console.error('Ошибка удаления assignment-ключевого слова:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
-  }
-};
+  const id     = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) throw new ApiError(400, 'Неверный ID');
+
+  const { rows } = await pool.query(
+    `DELETE FROM assignment_keywords
+      WHERE id = $1
+        AND user_id = $2
+    RETURNING id`,
+    [id, userId]
+  );
+  if (!rows.length) throw new ApiError(404, 'Правило не найдено или доступа нет');
+  res.json({ message: 'Удалено' });
+});

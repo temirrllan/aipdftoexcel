@@ -1,24 +1,36 @@
 // server.js
-const express = require('express');
-const cors = require('cors');
 require('dotenv').config();
+const express = require('express');
+const cors    = require('cors');
+const helmet  = require('helmet');
+const morgan  = require('morgan');
+
+const authRoutes      = require('./routes/auth');
+const uploadRoutes    = require('./routes/upload');
+const keywordsRoutes  = require('./routes/keywords');
+const assignRoutes    = require('./routes/assignmentKeywords');
+const notFound        = require('./middlewares/notFound');
+const errorHandler    = require('./middlewares/errorHandler');
+
 const app = express();
 
+// Middleware
+app.use(helmet());
 app.use(cors());
+app.use(morgan('dev'));
 app.use(express.json());
 
-// Подключение маршрутов
-const authRoutes = require('./routes/auth');
-const uploadRoutes = require('./routes/upload');
-const keywordsRoutes = require('./routes/keywords');
-const assignmentKeywordsRoutes = require('./routes/assignmentKeywords');
+// Routes
+app.use('/auth',               authRoutes);
+app.use('/upload',             uploadRoutes);
+app.use('/keywords',           keywordsRoutes);
+app.use('/assignment_keywords', assignRoutes);
 
-app.use('/auth', authRoutes);
-app.use('/upload', uploadRoutes);
-app.use('/keywords', keywordsRoutes);
-app.use('/assignment_keywords', assignmentKeywordsRoutes);
+// 404 + Error handler
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
+  console.log(`🚀 Server listening on port ${PORT}`);
 });
